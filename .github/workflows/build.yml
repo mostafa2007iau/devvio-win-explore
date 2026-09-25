@@ -1,0 +1,41 @@
+name: build
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install 7-Zip and Inno Setup
+        shell: pwsh
+        run: choco install 7zip innosetup -y --no-progress
+
+      - name: Build
+        shell: pwsh
+        run: ./scripts/build.ps1 -Configuration Release
+
+      - name: Upload setup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevvioArchiver-Setup
+          path: dist/DevvioArchiver-Setup-*.exe
+          if-no-files-found: warn
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevvioArchiver-portable
+          path: dist/DevvioArchiver-*-portable.zip
+          if-no-files-found: warn

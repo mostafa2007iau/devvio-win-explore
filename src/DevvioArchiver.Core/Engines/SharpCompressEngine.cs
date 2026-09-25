@@ -602,7 +602,7 @@ namespace Devvio.Archiver.Core.Engines
                     {
                         string source = ResolveSource(options, 0);
                         using (var input = File.OpenRead(source))
-                        using (var bzip2 = BZip2Stream.Create(output, CompressionMode.Compress, false, true))
+                        using (var bzip2 = BZip2Stream.Create(output, SharpCompress.Compressors.CompressionMode.Compress, false, true))
                         {
                             context.ReportFile(Path.GetFileName(source));
                             input.CopyTo(bzip2);

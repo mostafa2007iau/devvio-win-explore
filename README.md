@@ -44,10 +44,14 @@
 
 ## 🚀 دانلود بیلد آماده
 
-هر push روی مخزن، GitHub Actions را اجرا می‌کند و این خروجی‌ها را در بخش **Actions → Artifacts** قرار می‌دهد:
+**ساده‌ترین راه — صفحهٔ Releases:**
 
-- `DevvioArchiver-Setup` — اینستالر کامل (پیشنهادی)
-- `DevvioArchiver-portable` — نسخهٔ بدون نصب (فایل‌ها را در یک پوشه بریزید و `scripts\register.cmd` را اجرا کنید)
+👉 **https://github.com/mostafa2007iau/devvio-win-explore/releases**
+
+- `DevvioArchiver-Setup-1.0.0.exe` — اینستالر کامل (پیشنهادی)
+- `DevvioArchiver-1.0.0-portable.zip` — نسخهٔ بدون نصب (فایل‌ها را در یک پوشه بریزید و `scripts\register.cmd` را با دسترسی Administrator اجرا کنید)
+
+هر push موفق روی مخزن هم GitHub Actions را اجرا می‌کند و همین خروجی‌ها را در **Actions → آخرین run → Artifacts** قرار می‌دهد (نیاز به لاگین گیت‌هاب دارد و artifacts بعد از مدتی منقضی می‌شوند؛ Releases دائمی است).
 
 ## 🛠️ بیلد از سورس
 

@@ -8,7 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SharpCompress" Version="0.50.4" />
+    <!-- 0.42.1 = last classic-API release; keeps the code buildable with
+         Visual Studio 2022 (no C# 14 extension members involved). -->
+    <PackageReference Include="SharpCompress" Version="0.42.1" />
   </ItemGroup>
 
   <ItemGroup>

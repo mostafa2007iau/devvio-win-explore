@@ -5,20 +5,19 @@ using System.IO.Compression;
 using System.Linq;
 using SharpCompress.Archives;
 using SharpCompress.Common;
-using SharpCompress.Compressors;
 using SharpCompress.Compressors.BZip2;
 using SharpCompress.Readers;
 using SharpCompress.Writers;
-using SharpCompress.Writers.SevenZip;
 using SharpCompress.Writers.Zip;
 
 namespace Devvio.Archiver.Core.Engines
 {
     /// <summary>
-    /// Pure managed (in-process) archive engine built on SharpCompress. Always available,
-    /// even without 7z.exe. Reads zip/7z/rar/tar/gzip/bzip2/xz/arj/... and creates
-    /// zip/7z/tar/tar.gz/tar.bz2/gzip/bzip2. Encrypted creation and split volumes
-    /// require the 7-Zip engine.
+    /// Pure managed (in-process) archive engine built on SharpCompress 0.42.x (the last
+    /// release with the classic API, compilable with Visual Studio 2022 / C# 12).
+    /// Always available, even without 7z.exe. Reads zip/7z/rar/tar/gzip/bzip2/xz/arj/...
+    /// and creates zip/tar/tar.gz/tar.bz2/gzip/bzip2. Encrypted creation, split volumes
+    /// and 7z creation require the 7-Zip engine.
     /// </summary>
     public sealed class SharpCompressEngine : IArchiveEngine
     {
@@ -59,7 +58,6 @@ namespace Devvio.Archiver.Core.Engines
             switch (kind)
             {
                 case ArchiveFormatKind.Zip:
-                case ArchiveFormatKind.SevenZip:
                 case ArchiveFormatKind.Tar:
                 case ArchiveFormatKind.TarGz:
                 case ArchiveFormatKind.TarBz2:
@@ -113,7 +111,7 @@ namespace Devvio.Archiver.Core.Engines
 
             try
             {
-                using (IArchive archive = ArchiveFactory.OpenArchive(archivePath, new ReaderOptions { Password = password }))
+                using (IArchive archive = ArchiveFactory.Open(archivePath, new ReaderOptions { Password = password }))
                 {
                     foreach (IArchiveEntry entry in archive.Entries)
                     {
@@ -123,7 +121,6 @@ namespace Devvio.Archiver.Core.Engines
                         }
                         AddListedEntry(info, entry.Key, entry.Size, entry.CompressedSize, entry.IsDirectory, entry.IsEncrypted, entry.LastModifiedTime);
                     }
-                    info.IsEncrypted = archive.IsEncrypted || info.IsEncrypted;
                     info.RecalculateTotals();
                     return info;
                 }
@@ -135,7 +132,7 @@ namespace Devvio.Archiver.Core.Engines
                 info.IsEncrypted = false;
                 try
                 {
-                    using (IReader reader = ReaderFactory.OpenReader(archivePath, new ReaderOptions { Password = password }))
+                    using (IReader reader = ReaderFactory.Open(archivePath, new ReaderOptions { Password = password }))
                     {
                         while (reader.MoveToNextEntry())
                         {
@@ -226,21 +223,13 @@ namespace Devvio.Archiver.Core.Engines
             {
                 ExtractFullPath = true,
                 Overwrite = true,
-                PreserveFileTime = true,
-                CheckCrc = true
+                PreserveFileTime = true
             };
 
             try
             {
-                using (IArchive archive = ArchiveFactory.OpenArchive(archivePath, new ReaderOptions { Password = password }))
+                using (IArchive archive = ArchiveFactory.Open(archivePath, new ReaderOptions { Password = password }))
                 {
-                    if (options.OnlyEntries == null && options.Overwrite == OverwritePolicy.Overwrite)
-                    {
-                        // Fast path; SharpCompress handles solid archives optimally here.
-                        archive.WriteToDirectory(options.Destination, extraction, new ProgressBridge(context));
-                        return;
-                    }
-
                     List<IArchiveEntry> entries = archive.Entries.Where(e => e != null && !string.IsNullOrEmpty(e.Key)).ToList();
                     long total = 0;
                     foreach (IArchiveEntry entry in entries)
@@ -281,7 +270,7 @@ namespace Devvio.Archiver.Core.Engines
             catch (Exception ex) when (!IsPasswordRelated(ex) && !(ex is OperationCancelledException))
             {
                 // Forward-only formats (tar.gz, ...) go through the reader API.
-                using (IReader reader = ReaderFactory.OpenReader(archivePath, new ReaderOptions { Password = password }))
+                using (IReader reader = ReaderFactory.Open(archivePath, new ReaderOptions { Password = password }))
                 {
                     while (reader.MoveToNextEntry())
                     {
@@ -301,7 +290,6 @@ namespace Devvio.Archiver.Core.Engines
                             continue;
                         }
                         context.ReportFile(entry.Key);
-                        string currentKey = entry.Key;
                         ExtractFileEntry(entry.Key, entry.Size, options, delegate (string target)
                         {
                             reader.WriteEntryToFile(target, extraction);
@@ -541,21 +529,7 @@ namespace Devvio.Archiver.Core.Engines
                             CompressionLevel = options.Level,
                             LeaveStreamOpen = true
                         };
-                        using (IWriter writer = WriterFactory.OpenWriter(output, ArchiveType.Zip, writerOptions))
-                        {
-                            WriteItems(writer, options, state, context);
-                        }
-                        break;
-                    }
-                    case ArchiveFormatKind.SevenZip:
-                    {
-                        var writerOptions = new SevenZipWriterOptions(CompressionType.LZMA2)
-                        {
-                            CompressHeader = true,
-                            CompressionLevel = options.Level,
-                            LeaveStreamOpen = true
-                        };
-                        using (IWriter writer = WriterFactory.OpenWriter(output, ArchiveType.SevenZip, writerOptions))
+                        using (IWriter writer = WriterFactory.Open(output, ArchiveType.Zip, writerOptions))
                         {
                             WriteItems(writer, options, state, context);
                         }
@@ -563,7 +537,7 @@ namespace Devvio.Archiver.Core.Engines
                     }
                     case ArchiveFormatKind.Tar:
                     {
-                        using (IWriter writer = WriterFactory.OpenWriter(output, ArchiveType.Tar, new WriterOptions(CompressionType.None) { LeaveStreamOpen = true }))
+                        using (IWriter writer = WriterFactory.Open(output, ArchiveType.Tar, new WriterOptions(CompressionType.None) { LeaveStreamOpen = true }))
                         {
                             WriteItems(writer, options, state, context);
                         }
@@ -572,7 +546,7 @@ namespace Devvio.Archiver.Core.Engines
                     case ArchiveFormatKind.TarGz:
                     {
                         using (var gzip = new GZipStream(output, MapGzipLevel(options.Level), true))
-                        using (IWriter writer = WriterFactory.OpenWriter(gzip, ArchiveType.Tar, new WriterOptions(CompressionType.None) { LeaveStreamOpen = true }))
+                        using (IWriter writer = WriterFactory.Open(gzip, ArchiveType.Tar, new WriterOptions(CompressionType.None) { LeaveStreamOpen = true }))
                         {
                             WriteItems(writer, options, state, context);
                         }
@@ -580,8 +554,8 @@ namespace Devvio.Archiver.Core.Engines
                     }
                     case ArchiveFormatKind.TarBz2:
                     {
-                        using (var bzip2 = BZip2Stream.Create(output, SharpCompress.Compressors.CompressionMode.Compress, false, true))
-                        using (IWriter writer = WriterFactory.OpenWriter(bzip2, ArchiveType.Tar, new WriterOptions(CompressionType.None) { LeaveStreamOpen = true }))
+                        using (var bzip2 = new BZip2Stream(output, SharpCompress.Compressors.CompressionMode.Compress, false))
+                        using (IWriter writer = WriterFactory.Open(bzip2, ArchiveType.Tar, new WriterOptions(CompressionType.None) { LeaveStreamOpen = true }))
                         {
                             WriteItems(writer, options, state, context);
                         }
@@ -602,7 +576,7 @@ namespace Devvio.Archiver.Core.Engines
                     {
                         string source = ResolveSource(options, 0);
                         using (var input = File.OpenRead(source))
-                        using (var bzip2 = BZip2Stream.Create(output, SharpCompress.Compressors.CompressionMode.Compress, false, true))
+                        using (var bzip2 = new BZip2Stream(output, SharpCompress.Compressors.CompressionMode.Compress, false))
                         {
                             context.ReportFile(Path.GetFileName(source));
                             input.CopyTo(bzip2);
@@ -750,8 +724,7 @@ namespace Devvio.Archiver.Core.Engines
                 context.ThrowIfCancelled();
                 try
                 {
-                    var extraction = new ExtractionOptions { Overwrite = true, CheckCrc = true };
-                    using (IArchive archive = ArchiveFactory.OpenArchive(archivePath, new ReaderOptions { Password = password }))
+                    using (IArchive archive = ArchiveFactory.Open(archivePath, new ReaderOptions { Password = password }))
                     {
                         List<IArchiveEntry> entries = archive.Entries.Where(e => e != null && !string.IsNullOrEmpty(e.Key) && !e.IsDirectory).ToList();
                         int done = 0;
@@ -760,7 +733,7 @@ namespace Devvio.Archiver.Core.Engines
                             context.ThrowIfCancelled();
                             context.ReportFile(entry.Key);
                             context.ReportPercent(entries.Count > 0 ? (int)(done * 100 / entries.Count) : (int?)null);
-                            entry.WriteTo(Stream.Null, extraction);
+                            entry.WriteTo(Stream.Null);
                             done++;
                         }
                     }
@@ -786,7 +759,7 @@ namespace Devvio.Archiver.Core.Engines
                 catch (Exception ex) when (!IsPasswordRelated(ex) && !(ex is OperationCancelledException))
                 {
                     // Forward-only formats.
-                    using (IReader reader = ReaderFactory.OpenReader(archivePath, new ReaderOptions { Password = password }))
+                    using (IReader reader = ReaderFactory.Open(archivePath, new ReaderOptions { Password = password }))
                     {
                         while (reader.MoveToNextEntry())
                         {
@@ -822,39 +795,6 @@ namespace Devvio.Archiver.Core.Engines
             }
             return ex is SharpCompressException && !string.IsNullOrEmpty(message)
                 && message.IndexOf("encrypt", StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-
-        private sealed class ProgressBridge : IProgress<ProgressReport>
-        {
-            private readonly OperationContext context;
-
-            public ProgressBridge(OperationContext context)
-            {
-                this.context = context;
-            }
-
-            public void Report(ProgressReport value)
-            {
-                if (context == null || value == null)
-                {
-                    return;
-                }
-                try
-                {
-                    if (!string.IsNullOrEmpty(value.EntryPath))
-                    {
-                        context.ReportFile(value.EntryPath);
-                    }
-                    double? percent = value.PercentComplete;
-                    if (percent.HasValue)
-                    {
-                        context.ReportPercent((int)Math.Round(percent.Value));
-                    }
-                }
-                catch
-                {
-                }
-            }
         }
 
         #endregion

@@ -407,11 +407,13 @@ namespace Devvio.Archiver.App.Forms
         private void PopulateFormats(int sourceCount)
         {
             bool cli = ArchiveEngineSelector.HasCliEngine;
-            var formats = new List<FormatItem>
+            var formats = new List<FormatItem>();
+            if (cli)
             {
-                new FormatItem { Kind = ArchiveFormatKind.SevenZip, Display = "7z (7-Zip)", Extension = ".7z" },
-                new FormatItem { Kind = ArchiveFormatKind.Zip, Display = "zip", Extension = ".zip" }
-            };
+                // Creating 7z/xz/wim needs the 7-Zip engine.
+                formats.Add(new FormatItem { Kind = ArchiveFormatKind.SevenZip, Display = "7z (7-Zip)", Extension = ".7z" });
+            }
+            formats.Add(new FormatItem { Kind = ArchiveFormatKind.Zip, Display = "zip", Extension = ".zip" });
             if (cli)
             {
                 formats.Add(new FormatItem { Kind = ArchiveFormatKind.Tar, Display = "tar", Extension = ".tar" });
@@ -430,7 +432,7 @@ namespace Devvio.Archiver.App.Forms
                 formats.Add(new FormatItem { Kind = ArchiveFormatKind.TarBz2, Display = "tar.bz2", Extension = ".tar.bz2" });
                 formats.Add(new FormatItem { Kind = ArchiveFormatKind.Gzip, Display = "gzip (single file)", Extension = ".gz" });
                 formats.Add(new FormatItem { Kind = ArchiveFormatKind.BZip2, Display = "bzip2 (single file)", Extension = ".bz2" });
-                noticeLabel.Visible = true;
+                showManagedNotice = true;
             }
 
             if (sourceCount > 1)

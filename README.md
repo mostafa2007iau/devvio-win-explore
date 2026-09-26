@@ -52,9 +52,12 @@
 ## 🛠️ بیلد از سورس
 
 ### پیش‌نیازهای بیلد
-- **.NET SDK 10** (به بعد) — [dotnet.microsoft.com](https://dotnet.microsoft.com/download) (یا Visual Studio 2026)
+- **Visual Studio 2022** (نسخهٔ 17.8 به بعد) با **workload «‎.NET desktop development‎»** — شامل MSBuild و targeting pack مربوط به ‎.NET Framework 4.8‎ است و کافی است.
+- یا اگر ترجیح می‌دهید از خط فرمان بیلد بگیرید: هر ‎.NET SDK‎ نسخهٔ 8 به بعد (`dotnet build`)
 - برای ساخت اینستالر: **Inno Setup 6** (`choco install innosetup`)
 - برای همراه‌کردن موتور 7-Zip در بیلد: **7-Zip نصب‌شده** (`choco install 7zip`) — در غیاب آن، بیلد ادامه می‌یابد ولی موتور کامل همراه نمی‌شود
+
+> 📌 نکتهٔ سازگاری: پروژه عمداً از **SharpCompress 0.42.1** (آخرین نسخهٔ با API کلاسیک) استفاده می‌کند تا با کامپایلر C#‏ 12/13 داخل VS 2022 هم بدون مشکل کامپایل شود و نیازی به VS 2026 یا SDK جدیدتر نباشد.
 
 ### مراحل
 ```powershell

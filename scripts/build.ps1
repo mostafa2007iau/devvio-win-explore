@@ -12,61 +12,69 @@ $repo = Split-Path $PSScriptRoot -Parent
 $stage = Join-Path $repo "stage"
 $dist = Join-Path $repo "dist"
 
-Write-Host "== Devvio Archiver build ==" -ForegroundColor Cyan
+# Full console transcript (also survives failures) - uploaded by CI.
+try { Start-Transcript -Path (Join-Path $repo "build.log") -Force | Out-Null } catch { }
 
-# ---------------------------------------------------------------- clean
-foreach ($dir in @($stage, $dist)) {
-    if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
+try {
+    Write-Host "== Devvio Archiver build ==" -ForegroundColor Cyan
+
+    # ---------------------------------------------------------------- clean
+    foreach ($dir in @($stage, $dist)) {
+        if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
+    }
+    New-Item -ItemType Directory -Path $stage -Force | Out-Null
+    New-Item -ItemType Directory -Path $dist -Force | Out-Null
+
+    # ---------------------------------------------------------------- publish app (carries Core + SharpCompress)
+    Write-Host "STEP: dotnet publish (app)" -ForegroundColor Cyan
+    $appProject = Join-Path $repo "src" "DevvioArchiver.App" "DevvioArchiver.App.csproj"
+    dotnet publish $appProject -c $Configuration -f net48 -o $stage
+    if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed ($LASTEXITCODE)" }
+
+    # ---------------------------------------------------------------- build the shell extension
+    Write-Host "STEP: dotnet build (shell extension)" -ForegroundColor Cyan
+    $shellProject = Join-Path $repo "src" "DevvioArchiver.Shell" "DevvioArchiver.Shell.csproj"
+    dotnet build $shellProject -c $Configuration
+    if ($LASTEXITCODE -ne 0) { throw "dotnet build (shell) failed ($LASTEXITCODE)" }
+
+    $shellBin = Join-Path $repo "src" "DevvioArchiver.Shell" "bin" $Configuration "net48"
+    Copy-Item (Join-Path $shellBin "DevvioArchiver.Shell.dll") -Destination $stage -Force
+    Copy-Item (Join-Path $shellBin "SharpShell.dll") -Destination $stage -Force
+    Write-Host "Staged shell extension from: $shellBin" -ForegroundColor Green
+
+    # ---------------------------------------------------------------- bundle 7-Zip
+    Write-Host "STEP: bundle 7-Zip" -ForegroundColor Cyan
+    & (Join-Path $PSScriptRoot "copy-7z.ps1") -StageDir $stage
+
+    # ---------------------------------------------------------------- portable zip
+    Write-Host "STEP: portable zip" -ForegroundColor Cyan
+    $zip = Join-Path $dist "DevvioArchiver-1.0.0-portable.zip"
+    Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $zip -Force
+    Write-Host "Portable zip: $zip" -ForegroundColor Green
+
+    # ---------------------------------------------------------------- installer
+    Write-Host "STEP: Inno Setup installer" -ForegroundColor Cyan
+    $isccCandidates = @()
+    if (${env:ProgramFiles(x86)}) { $isccCandidates += (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe") }
+    if ($env:ProgramFiles) { $isccCandidates += (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe") }
+    $isccCandidates += (Join-Path $env:ProgramData "chocolatey\bin\ISCC.exe")
+    $iscc = $isccCandidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+    if (-not $iscc) {
+        $cmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+        if ($cmd) { $iscc = $cmd.Source }
+    }
+
+    if ($iscc) {
+        Write-Host "Inno Setup compiler: $iscc"
+        & $iscc (Join-Path $repo "installer" "DevvioArchiver.iss")
+        if ($LASTEXITCODE -ne 0) { throw "Inno Setup compile failed ($LASTEXITCODE)" }
+        Write-Host "Installer: $dist" -ForegroundColor Green
+    } else {
+        Write-Warning "Inno Setup 6 not found - skipping setup exe. Install with: choco install innosetup"
+    }
+
+    Write-Host "== build finished ==" -ForegroundColor Cyan
 }
-New-Item -ItemType Directory -Path $stage -Force | Out-Null
-New-Item -ItemType Directory -Path $dist -Force | Out-Null
-
-# ---------------------------------------------------------------- publish app (carries Core + SharpCompress)
-Write-Host "STEP: dotnet publish (app)" -ForegroundColor Cyan
-$appProject = Join-Path $repo "src" "DevvioArchiver.App" "DevvioArchiver.App.csproj"
-dotnet publish $appProject -c $Configuration -f net48 -o $stage
-if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
-
-# ---------------------------------------------------------------- build the shell extension
-Write-Host "STEP: dotnet build (shell extension)" -ForegroundColor Cyan
-$shellProject = Join-Path $repo "src" "DevvioArchiver.Shell" "DevvioArchiver.Shell.csproj"
-dotnet build $shellProject -c $Configuration
-if ($LASTEXITCODE -ne 0) { throw "dotnet build (shell) failed" }
-
-$shellBin = Join-Path $repo "src" "DevvioArchiver.Shell" "bin" $Configuration "net48"
-Copy-Item (Join-Path $shellBin "DevvioArchiver.Shell.dll") -Destination $stage -Force
-Copy-Item (Join-Path $shellBin "SharpShell.dll") -Destination $stage -Force
-Write-Host "Staged shell extension from: $shellBin" -ForegroundColor Green
-
-# ---------------------------------------------------------------- bundle 7-Zip
-Write-Host "STEP: bundle 7-Zip" -ForegroundColor Cyan
-& (Join-Path $PSScriptRoot "copy-7z.ps1") -StageDir $stage
-
-# ---------------------------------------------------------------- portable zip
-Write-Host "STEP: portable zip" -ForegroundColor Cyan
-$zip = Join-Path $dist "DevvioArchiver-1.0.0-portable.zip"
-Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $zip -Force
-Write-Host "Portable zip: $zip" -ForegroundColor Green
-
-# ---------------------------------------------------------------- installer
-Write-Host "STEP: Inno Setup installer" -ForegroundColor Cyan
-$isccCandidates = @()
-if (${env:ProgramFiles(x86)}) { $isccCandidates += (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe") }
-if ($env:ProgramFiles) { $isccCandidates += (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe") }
-$isccCandidates += (Join-Path $env:ProgramData "chocolatey\bin\ISCC.exe")
-$iscc = $isccCandidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
-if (-not $iscc) {
-    $cmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-    if ($cmd) { $iscc = $cmd.Source }
+finally {
+    try { Stop-Transcript | Out-Null } catch { }
 }
-
-if ($iscc) {
-    Write-Host "Inno Setup compiler: $iscc"
-    & $iscc (Join-Path $repo "installer" "DevvioArchiver.iss")
-    if ($LASTEXITCODE -ne 0) { throw "Inno Setup compile failed ($LASTEXITCODE)" }
-    Write-Host "Installer: $dist" -ForegroundColor Green
-} else {
-    Write-Warning "Inno Setup 6 not found - skipping setup exe. Install with: choco install innosetup"
-}
-
-Write-Host "== build finished ==" -ForegroundColor Cyan

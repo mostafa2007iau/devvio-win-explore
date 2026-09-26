@@ -17,3 +17,6 @@ out/
 
 # Test results
 TestResults/
+
+# CI/local build transcript
+build.log

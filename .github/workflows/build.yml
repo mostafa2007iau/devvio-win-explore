@@ -24,7 +24,26 @@ jobs:
 
       - name: Build
         shell: pwsh
-        run: ./scripts/build.ps1 -Configuration Release
+        run: |
+          $exit = 0
+          try {
+            & ./scripts/build.ps1 -Configuration Release *> build.log
+            if ($LASTEXITCODE -ne 0) { $exit = $LASTEXITCODE }
+          } catch {
+            "build.ps1 failed: $($_.Exception.Message)" | Out-File -Append build.log
+            $_.ScriptStackTrace | Out-File -Append build.log
+            $exit = 1
+          }
+          Get-Content build.log | Write-Host
+          exit $exit
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
 
       - name: Upload setup artifact
         uses: actions/upload-artifact@v4

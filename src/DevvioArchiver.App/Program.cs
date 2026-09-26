@@ -48,7 +48,6 @@ namespace Devvio.Archiver.App
             bool dialog = false;
             bool quick = false;
             bool here = false;
-            bool sub = false;
 
             for (int i = 1; i < args.Length; i++)
             {
@@ -56,7 +55,7 @@ namespace Devvio.Archiver.App
                 if (arg == "--dialog") { dialog = true; }
                 else if (arg == "--quick") { quick = true; }
                 else if (arg == "--here") { here = true; }
-                else if (arg == "--sub") { sub = true; }
+                else if (arg == "--sub") { /* destination is derived per archive */ }
                 else if (arg == "--dir") { i++; if (i < args.Length) dir = args[i]; }
                 else if (arg == "--format") { i++; if (i < args.Length) format = args[i]; }
                 else if (arg == "--list")

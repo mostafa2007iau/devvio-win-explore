@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
+using Devvio.Archiver.Core;
 using Microsoft.Win32;
 using SharpShell.Attributes;
 using SharpShell.SharpContextMenu;

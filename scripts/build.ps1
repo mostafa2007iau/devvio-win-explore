@@ -85,8 +85,19 @@ try {
 
     if ($iscc) {
         Write-Host "Inno Setup compiler: $iscc"
-        & $iscc (Join-Path $repo "installer" "DevvioArchiver.iss")
-        if ($LASTEXITCODE -ne 0) { throw "Inno Setup compile failed ($LASTEXITCODE)" }
+        # Run through cmd.exe with file redirection so the compiler output always
+        # ends up in the transcript, whatever PowerShell does with the streams.
+        $issFile = Join-Path $repo "installer" "DevvioArchiver.iss"
+        $isccLog = Join-Path $repo "iscc-output.log"
+        $cmdLine = "`"$iscc`" `"$issFile`" > `"$isccLog`" 2>&1"
+        & "$env:ComSpec" /c $cmdLine
+        $isccCode = $LASTEXITCODE
+        if (Test-Path $isccLog) {
+            Get-Content $isccLog | Write-Host
+        }
+        if ($isccCode -ne 0) {
+            throw "Inno Setup compile failed ($isccCode)"
+        }
         Write-Host "Installer: $dist" -ForegroundColor Green
     } else {
         Write-Warning "Inno Setup 6 not found - skipping setup exe. Install with: choco install innosetup"

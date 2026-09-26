@@ -8,7 +8,9 @@
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "Devvio"
 #define MyAppExeName "DevvioArchiver.App.exe"
-#define ShellClsid "{991DE108-BB35-4F0D-B518-466CDEBC7E53}"
+; The value is written to the registry as "{CLSID}" - the leading brace must be
+; doubled ("{{") so the Inno constant parser treats it as a literal brace.
+#define ShellClsid "{{991DE108-BB35-4F0D-B518-466CDEBC7E53}"
 
 [Setup]
 AppId={{86352496-D068-44C9-9005-03BB979CCB4E}

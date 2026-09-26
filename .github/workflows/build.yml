@@ -84,17 +84,14 @@ jobs:
           }
           if ($files.Count -eq 0) { Write-Host "No files to release"; exit 0 }
           Write-Host "Release files:"; $files | ForEach-Object { Write-Host " - $_" }
+          $nl = "`n"
+          $notes = "Archive support for Windows Explorer (7z, RAR, tar/gz/bz2/xz, cab, iso, wim, lzh, arj, cpio, deb, rpm, split volumes, AES encryption).$nl$nl" +
+            "DevvioArchiver-Setup-1.0.0.exe - full installer (run as Administrator; Explorer restarts when done).$nl" +
+            "DevvioArchiver-1.0.0-portable.zip - portable build (extract anywhere, run scripts\register.cmd as Administrator).$nl$nl" +
+            "Windows 10/11, .NET Framework 4.8 (preinstalled on up-to-date systems). On Windows 11 the context menu entries appear under 'Show more options' (Shift+F10)."
           gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag @files --repo $env:GITHUB_REPOSITORY `
-              --target $env:GITHUB_SHA `
-              --title "Devvio Archiver 1.0.0" `
-              --notes "Archive support for Windows Explorer (7z, RAR, tar/gz/bz2/xz, cab, iso, wim, lzh, arj, cpio, deb, rpm, split volumes, AES encryption).
-
-DevvioArchiver-Setup-1.0.0.exe - full installer (run as Administrator; restarts Explorer when done).
-DevvioArchiver-1.0.0-portable.zip - portable build (extract anywhere, run scripts\register.cmd as Administrator).
-
-Windows 10/11, .NET Framework 4.8 (preinstalled on up-to-date systems). On Windows 11 the context menu entries appear under 'Show more options' (Shift+F10)."
+            gh release create $tag @files --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Devvio Archiver 1.0.0" --notes $notes
           } else {
             gh release upload $tag @files --repo $env:GITHUB_REPOSITORY --clobber
           }

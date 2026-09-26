@@ -15,6 +15,27 @@ $dist = Join-Path $repo "dist"
 # Full console transcript (also survives failures) - uploaded by CI.
 try { Start-Transcript -Path (Join-Path $repo "build.log") -Force | Out-Null } catch { }
 
+# Runs a native tool, captures ALL of its output (stdout+stderr) so failures are
+# visible in the transcript, and throws with the output when the exit code is bad.
+function Invoke-Logged {
+    param(
+        [Parameter(Mandatory = $true)][string]$File,
+        [Parameter(Mandatory = $true)][string[]]$ToolArguments
+    )
+    $previousEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $lines = @()
+    try {
+        $lines = & $File @ToolArguments 2>&1 | ForEach-Object { "$_" }
+    } finally {
+        $ErrorActionPreference = $previousEap
+    }
+    $lines | Write-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw "$File failed with exit code $LASTEXITCODE`n$($lines -join "`n")"
+    }
+}
+
 try {
     Write-Host "== Devvio Archiver build ==" -ForegroundColor Cyan
 
@@ -28,14 +49,12 @@ try {
     # ---------------------------------------------------------------- publish app (carries Core + SharpCompress)
     Write-Host "STEP: dotnet publish (app)" -ForegroundColor Cyan
     $appProject = Join-Path $repo "src" "DevvioArchiver.App" "DevvioArchiver.App.csproj"
-    dotnet publish $appProject -c $Configuration -f net48 -o $stage
-    if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed ($LASTEXITCODE)" }
+    Invoke-Logged dotnet @('publish', $appProject, '-c', $Configuration, '-f', 'net48', '-o', $stage)
 
     # ---------------------------------------------------------------- build the shell extension
     Write-Host "STEP: dotnet build (shell extension)" -ForegroundColor Cyan
     $shellProject = Join-Path $repo "src" "DevvioArchiver.Shell" "DevvioArchiver.Shell.csproj"
-    dotnet build $shellProject -c $Configuration
-    if ($LASTEXITCODE -ne 0) { throw "dotnet build (shell) failed ($LASTEXITCODE)" }
+    Invoke-Logged dotnet @('build', $shellProject, '-c', $Configuration)
 
     $shellBin = Join-Path $repo "src" "DevvioArchiver.Shell" "bin" $Configuration "net48"
     Copy-Item (Join-Path $shellBin "DevvioArchiver.Shell.dll") -Destination $stage -Force

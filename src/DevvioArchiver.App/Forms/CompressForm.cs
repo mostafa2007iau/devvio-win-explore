@@ -309,6 +309,7 @@ namespace Devvio.Archiver.App.Forms
             Controls.Add(okButton);
             Controls.Add(cancelButton);
 
+            noticeLabel.Visible = showManagedNotice;
             FormatChanged();
         }
 

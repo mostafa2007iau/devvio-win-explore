@@ -379,7 +379,7 @@ namespace Devvio.Archiver.App
         {
             try
             {
-                Process.Start(new System.Diagnostics.ProcessStartInfo
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = path,
                     UseShellExecute = true
@@ -496,7 +496,6 @@ namespace Devvio.Archiver.App
         private static string[] SplitPath(string fullPath)
         {
             string trimmed = fullPath.TrimEnd('\\', '/');
-            int secondSeparator = trimmed.IndexOf(':', StringComparison.Ordinal) >= 0 ? 1 : -1;
             var parts = new List<string>();
             if (trimmed.Length >= 2 && trimmed[1] == ':')
             {
